@@ -1,8 +1,8 @@
-fastapi==0.110.1
-uvicorn==0.25.0
-motor==3.3.1
-pymongo==4.6.3
-python-dotenv==1.0.1
-pydantic==2.6.4
-email-validator==2.2.0
-python-multipart==0.0.9
+fastapi==0.116.1
+uvicorn==0.35.0
+motor==3.7.1
+pymongo==4.13.2
+python-dotenv==1.1.1
+pydantic==2.11.7
+email-validator==2.3.0
+python-multipart==0.0.20
