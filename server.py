@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter
+from urllib.parse import quote_plus
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -31,8 +32,11 @@ logger = logging.getLogger(__name__)
 # ===============================
 # MongoDB
 # ===============================
+username = quote_plus(os.getenv("MONGO_USER"))
+password = quote_plus(os.getenv("MONGO_PASSWORD"))
 
 MONGO_URL = os.getenv("MONGO_URL")
+print(MONGO_URL)
 DB_NAME = os.getenv("DB_NAME")
 
 client = AsyncIOMotorClient(MONGO_URL)
