@@ -1,5 +1,4 @@
 from fastapi import FastAPI, APIRouter
-from urllib.parse import quote_plus
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -32,8 +31,7 @@ logger = logging.getLogger(__name__)
 # ===============================
 # MongoDB
 # ===============================
-username = quote_plus(os.getenv("MONGO_USER"))
-password = quote_plus(os.getenv("MONGO_PASSWORD"))
+
 
 MONGO_URL = os.getenv("MONGO_URL")
 print(MONGO_URL)
@@ -56,12 +54,6 @@ api_router = APIRouter(prefix="/api")
 # ===============================
 # Models
 # ===============================
-
-class Social(BaseModel):
-    github: str
-    linkedin: str
-    twitter: str
-
 
 class PersonalInfo(BaseModel):
     name: str
@@ -128,48 +120,7 @@ class Social(BaseModel):
     twitter: str
 
 
-class PersonalInfo(BaseModel):
-    name: str
-    title: str
-    bio: str
-    experience: str
-    resume: str
-    photo:str
-    email: str
-    phone: str
-    location: str
 
-    social: Social
-
-class Project(BaseModel):
-    title: str
-    description: str
-    image: str
-    technologies: List[str]
-    featured: bool = False
-
-
-class Technology(BaseModel):
-    name: str
-    level: int
-
-
-class SkillCategory(BaseModel):
-    category: str
-    technologies: list[Technology]
-
-class ContactMessage(BaseModel):
-    name: str
-    email: str
-    subject: str
-    message: str
-
-class Testimonial(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    position: str
-    avatar: str
-    text: str
 # Routes
 # ==========================================
 # Root API
