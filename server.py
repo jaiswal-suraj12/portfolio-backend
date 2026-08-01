@@ -53,7 +53,11 @@ api_router = APIRouter(prefix="/api")
 
 # ===============================
 # Models
-# ===============================
+# ============================
+class Social(BaseModel):
+    github: str
+    linkedin: str
+    twitter: str
 
 class PersonalInfo(BaseModel):
     name: str
@@ -66,6 +70,7 @@ class PersonalInfo(BaseModel):
     phone: str
     location: str
     social: Social
+    
 
 
 class Project(BaseModel):
