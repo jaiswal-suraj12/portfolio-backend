@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -10,16 +10,18 @@ import uuid
 import logging
 import os
 
-# ===============================
-# Load Environment Variables
-# ===============================
+
+# =========================================================
+# Environment
+# =========================================================
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-# ===============================
+
+# =========================================================
 # Logging
-# ===============================
+# =========================================================
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,36 +30,42 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# ===============================
-# MongoDB
-# ===============================
 
+# =========================================================
+# MongoDB Atlas
+# =========================================================
 
 MONGO_URL = os.getenv("MONGO_URL")
-print(MONGO_URL)
-DB_NAME = os.getenv("DB_NAME")
+DB_NAME = os.getenv("DB_NAME", "portfolio")
+
+if not MONGO_URL:
+    raise RuntimeError("MONGO_URL is not configured")
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
-# ===============================
-# FastAPI App
-# ===============================
+
+# =========================================================
+# FastAPI
+# =========================================================
 
 app = FastAPI(
     title="Portfolio API",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 api_router = APIRouter(prefix="/api")
 
-# ===============================
+
+# =========================================================
 # Models
-# ============================
+# =========================================================
+
 class Social(BaseModel):
     github: str
     linkedin: str
     twitter: str
+
 
 class PersonalInfo(BaseModel):
     name: str
@@ -70,14 +78,16 @@ class PersonalInfo(BaseModel):
     phone: str
     location: str
     social: Social
-    
 
 
 class Project(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
     description: str
-    image: str
     technologies: List[str]
+    image: str
+    liveLink: str = ""
+    githubLink: str = ""
     featured: bool = False
 
 
@@ -98,12 +108,17 @@ class ContactMessage(BaseModel):
     message: str
 
 
-class Testimonial(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+class TestimonialCreate(BaseModel):
     name: str
     position: str
     avatar: str
     text: str
+
+
+class Testimonial(TestimonialCreate):
+    id: str = Field(
+        default_factory=lambda: str(uuid.uuid4())
+    )
 
 
 class StatusCheck(BaseModel):
@@ -119,33 +134,29 @@ class StatusCheck(BaseModel):
 class StatusCheckCreate(BaseModel):
     client_name: str
 
-class Social(BaseModel):
-    github: str
-    linkedin: str
-    twitter: str
 
-
-
-# Routes
-# ==========================================
-# Root API
-# ==========================================
+# =========================================================
+# Root
+# =========================================================
 
 @api_router.get("/")
 async def root():
     return {
-        "message": "Portfolio API Running Successfully 🚀"
+        "message": "Portfolio API Running Successfully"
     }
 
 
-# ==========================================
-# Personal Information
-# ==========================================
+# =========================================================
+# Personal Info
+# =========================================================
 
 @api_router.get("/personal-info", response_model=PersonalInfo)
 async def get_personal_info():
 
-    data = await db.personal_info.find_one({}, {"_id": 0})
+    data = await db.personal_info.find_one(
+        {},
+        {"_id": 0}
+    )
 
     if data is None:
         return PersonalInfo(
@@ -161,8 +172,8 @@ async def get_personal_info():
             social=Social(
                 github="https://github.com/yourname",
                 linkedin="https://linkedin.com/in/yourname",
-                twitter="https://twitter.com/yourname"
-            )
+                twitter="https://twitter.com/yourname",
+            ),
         )
 
     return PersonalInfo(**data)
@@ -172,21 +183,27 @@ async def get_personal_info():
 async def create_personal_info(info: PersonalInfo):
 
     await db.personal_info.delete_many({})
-    await db.personal_info.insert_one(info.model_dump())
+
+    await db.personal_info.insert_one(
+        info.model_dump()
+    )
 
     logger.info("Personal information updated")
 
     return info
 
 
-# ==========================================
+# =========================================================
 # Projects
-# ==========================================
+# =========================================================
 
 @api_router.get("/projects", response_model=List[Project])
 async def get_projects():
 
-    projects = await db.projects.find({}, {"_id": 0}).to_list(100)
+    projects = await db.projects.find(
+        {},
+        {"_id": 0}
+    ).to_list(100)
 
     return projects
 
@@ -194,21 +211,28 @@ async def get_projects():
 @api_router.post("/projects", response_model=Project)
 async def create_project(project: Project):
 
-    await db.projects.insert_one(project.model_dump())
+    await db.projects.insert_one(
+        project.model_dump()
+    )
 
-    logger.info(f"Project added: {project.title}")
+    logger.info(
+        f"Project added: {project.title}"
+    )
 
     return project
 
 
-# ==========================================
+# =========================================================
 # Skills
-# ==========================================
+# =========================================================
 
 @api_router.get("/skills", response_model=List[SkillCategory])
 async def get_skills():
 
-    skills = await db.skills.find({}, {"_id": 0}).to_list(100)
+    skills = await db.skills.find(
+        {},
+        {"_id": 0}
+    ).to_list(100)
 
     return skills
 
@@ -216,68 +240,172 @@ async def get_skills():
 @api_router.post("/skills", response_model=SkillCategory)
 async def create_skill(skill: SkillCategory):
 
-    await db.skills.insert_one(skill.model_dump())
+    await db.skills.insert_one(
+        skill.model_dump()
+    )
 
-    logger.info(f"Skill category added: {skill.category}")
+    logger.info(
+        f"Skill category added: {skill.category}"
+    )
 
     return skill
- # ==========================================
+
+
+# =========================================================
 # Testimonials
-# ==========================================
+# =========================================================
 
-@api_router.get("/testimonials", response_model=List[Testimonial])
+@api_router.get(
+    "/testimonials",
+    response_model=List[Testimonial]
+)
 async def get_testimonials():
-
-    testimonials = await db.testimonials.find({}, {"_id": 0}).to_list(100)
+    testimonials = await db.testimonials.find(
+        {},
+        {"_id": 0}
+    ).to_list(100)
 
     return testimonials
 
 
-@api_router.post("/testimonials", response_model=Testimonial)
-async def create_testimonial(testimonial: Testimonial):
+@api_router.post(
+    "/testimonials",
+    response_model=Testimonial
+)
+async def create_testimonial(
+    testimonial: TestimonialCreate
+):
+    testimonial_data = testimonial.model_dump()
 
-    await db.testimonials.insert_one(testimonial.model_dump())
+    testimonial_data["id"] = str(uuid.uuid4())
 
-    logger.info(f"New testimonial added by {testimonial.name}")
+    await db.testimonials.insert_one(
+        testimonial_data
+    )
 
-    return testimonial
+    logger.info(
+        f"New testimonial added by {testimonial.name}"
+    )
+
+    return testimonial_data
+
+# =========================================================
+# Update Testimonial
+# =========================================================
 
 
-# ==========================================
+@api_router.put(
+    "/testimonials/{testimonial_id}",
+    response_model=Testimonial
+)
+async def update_testimonial(
+    testimonial_id: str,
+    testimonial: TestimonialCreate
+):
+    updated_data = testimonial.model_dump()
+
+    result = await db.testimonials.update_one(
+        {"id": testimonial_id},
+        {"$set": updated_data}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Testimonial not found"
+        )
+
+    updated_testimonial = await db.testimonials.find_one(
+        {"id": testimonial_id},
+        {"_id": 0}
+    )
+
+    return updated_testimonial
+# =========================================================
+# Delete Testimonial
+# =========================================================
+
+
+@api_router.delete(
+    "/testimonials/{testimonial_id}"
+)
+async def delete_testimonial(
+    testimonial_id: str
+):
+    result = await db.testimonials.delete_one(
+        {"id": testimonial_id}
+    )
+
+    if result.deleted_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Testimonial not found"
+        )
+
+    logger.info(
+        f"Testimonial deleted: {testimonial_id}"
+    )
+
+    return {
+        "success": True,
+        "message": "Testimonial deleted successfully"
+    }
+
+# =========================================================
 # Contact
-# ==========================================
+# =========================================================
+
 
 @api_router.post("/contact")
 async def send_contact(message: ContactMessage):
 
-    await db.contacts.insert_one(message.model_dump())
+    await db.contacts.insert_one(
+        message.model_dump()
+    )
 
-    logger.info(f"Contact message from {message.name}")
+    logger.info(
+        f"Contact message from {message.name}"
+    )
 
     return {
         "success": True,
-        "message": "Message sent successfully"
+        "message": "Message sent successfully",
     }
 
 
-# ==========================================
-# Status Check
-# ==========================================
+# =========================================================
+# Status
+# =========================================================
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status(payload: StatusCheckCreate):
+@api_router.post(
+    "/status",
+    response_model=StatusCheck
+)
+async def create_status(
+    payload: StatusCheckCreate
+):
 
-    status = StatusCheck(**payload.model_dump())
+    status = StatusCheck(
+        **payload.model_dump()
+    )
 
     document = status.model_dump()
-    document["timestamp"] = document["timestamp"].isoformat()
 
-    await db.status_checks.insert_one(document)
+    document["timestamp"] = (
+        document["timestamp"].isoformat()
+    )
+
+    await db.status_checks.insert_one(
+        document
+    )
 
     return status
 
 
-@api_router.get("/status", response_model=List[StatusCheck])
+@api_router.get(
+    "/status",
+    response_model=List[StatusCheck]
+)
 async def get_status():
 
     results = await db.status_checks.find(
@@ -286,39 +414,56 @@ async def get_status():
     ).to_list(100)
 
     for item in results:
+
         if isinstance(item["timestamp"], str):
-            item["timestamp"] = datetime.fromisoformat(item["timestamp"])
+
+            item["timestamp"] = datetime.fromisoformat(
+                item["timestamp"]
+            )
 
     return results
 
 
-# ==========================================
-# Register Router
-# ==========================================
+# =========================================================
+# Register API
+# =========================================================
 
 app.include_router(api_router)
 
 
-# ==========================================
+# =========================================================
 # CORS
-# ==========================================
+# =========================================================
+
+cors_origins = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://192.168.29.251:5173"
+).split(",")
+
+cors_origins = [
+    origin.strip()
+    for origin in cors_origins
+    if origin.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# ==========================================
-# Shutdown Event
-# ==========================================
+# =========================================================
+# Shutdown
+# =========================================================
 
 @app.on_event("shutdown")
 async def shutdown_db():
 
     client.close()
 
-    logger.info("MongoDB connection closed")
+    logger.info(
+        "MongoDB connection closed"
+    )
